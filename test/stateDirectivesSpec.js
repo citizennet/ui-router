@@ -130,7 +130,7 @@ describe('uiStateRef', function() {
       $q.flush();
 
       expect($state.current.name).toEqual('contacts.item.detail');
-      expect($stateParams).toEqual({ id: 5 });
+      expect($stateParams).toEqual({ id: "5" });
     }));
 
     it('should transition when given a click that contains no data (fake-click)', inject(function($state, $stateParams, $q) {
@@ -147,7 +147,7 @@ describe('uiStateRef', function() {
       $q.flush();
 
       expect($state.current.name).toEqual('contacts.item.detail');
-      expect($stateParams).toEqual({ id: 5 });
+      expect($stateParams).toEqual({ id: "5" });
     }));
 
     it('should not transition states when ctrl-clicked', inject(function($state, $stateParams, $q) {
@@ -328,7 +328,7 @@ describe('uiStateRef', function() {
       $q.flush();
 
       expect($state.$current.name).toBe("contacts.item.detail");
-      expect($state.params).toEqual({ id: 5 });
+      expect($state.params).toEqual({ id: "5" });
     }));
 
     it('should resolve states from parent uiView', inject(function ($state, $stateParams, $q, $timeout) {
@@ -366,7 +366,7 @@ describe('uiStateRef', function() {
   describe('transition options', function() {
 
     beforeEach(inject(function($rootScope, $compile, $state) {
-      el = angular.element('<a ui-sref="contacts.item.detail({ id: contact.id })" ui-sref-opts="{ reload: true, notify: true }">Details</a>');
+      el = angular.element('<a ui-sref="contacts.item.detail({ id: contact.id })" ui-sref-opts="{ reload: true, absolute: true, notify: true }">Details</a>');
       scope = $rootScope;
       scope.contact = { id: 5 };
 
@@ -385,17 +385,19 @@ describe('uiStateRef', function() {
       $timeout.flush();
 
       expect(transitionOptions.reload).toEqual(true);
+      expect(transitionOptions.absolute).toEqual(true);
       expect(transitionOptions.notify).toBeUndefined();
     }));
   });
 });
 
 describe('uiSrefActive', function() {
-    var el, template, scope, document;
+  var el, template, scope, document, _stateProvider;
 
   beforeEach(module('ui.router'));
 
   beforeEach(module(function($stateProvider) {
+    _stateProvider = $stateProvider;
     $stateProvider.state('top', {
       url: ''
     }).state('contacts', {
@@ -414,8 +416,16 @@ describe('uiSrefActive', function() {
     });
   }));
 
-  beforeEach(inject(function($document) {
+  beforeEach(inject(function($document, $timeout) {
     document = $document[0];
+    timeoutFlush = function () {
+      try {
+        $timeout.flush();
+      } catch (e) {
+        // Angular 1.0.8 throws 'No deferred tasks to be flushed' if there is nothing in queue.
+        // Behave as Angular >=1.1.5 and do nothing in such case.
+      }
+    }
   }));
 
   it('should update class for sibling uiSref', inject(function($rootScope, $q, $compile, $state) {
@@ -426,11 +436,12 @@ describe('uiSrefActive', function() {
     expect(angular.element(template[0].querySelector('a')).attr('class')).toBe('');
     $state.transitionTo('contacts.item', { id: 1 });
     $q.flush();
-
+    timeoutFlush();
     expect(angular.element(template[0].querySelector('a')).attr('class')).toBe('active');
 
     $state.transitionTo('contacts.item', { id: 2 });
     $q.flush();
+    timeoutFlush();
     expect(angular.element(template[0].querySelector('a')).attr('class')).toBe('');
   }));
 
@@ -442,10 +453,12 @@ describe('uiSrefActive', function() {
     expect(angular.element(template[0].querySelector('a')).attr('class')).toBe('');
     $state.transitionTo('contacts.item.detail', { id: 5, foo: 'bar' });
     $q.flush();
+    timeoutFlush();
     expect(angular.element(template[0].querySelector('a')).attr('class')).toBe('active');
 
     $state.transitionTo('contacts.item.detail', { id: 5, foo: 'baz' });
     $q.flush();
+    timeoutFlush();
     expect(angular.element(template[0].querySelector('a')).attr('class')).toBe('');
   }));
 
@@ -456,10 +469,12 @@ describe('uiSrefActive', function() {
 
     $state.transitionTo('contacts.item.edit', { id: 1 });
     $q.flush();
+    timeoutFlush();
     expect(a.attr('class')).toMatch(/active/);
 
     $state.transitionTo('contacts.item.edit', { id: 4 });
     $q.flush();
+    timeoutFlush();
     expect(a.attr('class')).not.toMatch(/active/);
   }));
 
@@ -470,11 +485,31 @@ describe('uiSrefActive', function() {
 
     $state.transitionTo('contacts.item', { id: 1 });
     $q.flush();
+    timeoutFlush();
     expect(a.attr('class')).toMatch(/active/);
 
     $state.transitionTo('contacts.item.edit', { id: 1 });
     $q.flush();
+    timeoutFlush();
     expect(a.attr('class')).not.toMatch(/active/);
+  }));
+
+  it('should match on child states when active-equals and active-equals-eq is used', inject(function($rootScope, $q, $compile, $state, $timeout) {
+    template = $compile('<div><a ui-sref="contacts.item({ id: 1 })" ui-sref-active="active" ui-sref-active-eq="active-eq">Contacts</a></div>')($rootScope);
+    $rootScope.$digest();
+    var a = angular.element(template[0].getElementsByTagName('a')[0]);
+
+    $state.transitionTo('contacts.item', { id: 1 });
+    $q.flush();
+    timeoutFlush();
+    expect(a.attr('class')).toMatch(/active/);
+    expect(a.attr('class')).toMatch(/active-eq/);
+
+    $state.transitionTo('contacts.item.edit', { id: 1 });
+    $q.flush();
+    timeoutFlush();
+    expect(a.attr('class')).toMatch(/active/);
+    expect(a.attr('class')).not.toMatch(/active-eq/);
   }));
 
   it('should resolve relative state refs', inject(function($rootScope, $q, $compile, $state) {
@@ -484,15 +519,76 @@ describe('uiSrefActive', function() {
 
     $state.transitionTo('contacts');
     $q.flush();
+    timeoutFlush();
     expect(angular.element(template[0].querySelector('a')).attr('class')).toBe('ng-scope');
 
     $state.transitionTo('contacts.item', { id: 6 });
     $q.flush();
+    timeoutFlush();
     expect(angular.element(template[0].querySelector('a')).attr('class')).toBe('ng-scope active');
 
     $state.transitionTo('contacts.item', { id: 5 });
     $q.flush();
+    timeoutFlush();
     expect(angular.element(template[0].querySelector('a')).attr('class')).toBe('ng-scope');
+  }));
+
+  it('should match on any child state refs', inject(function($rootScope, $q, $compile, $state) {
+    el = angular.element('<div ui-sref-active="active"><a ui-sref="contacts.item({ id: 1 })">Contacts</a><a ui-sref="contacts.item({ id: 2 })">Contacts</a></div>');
+    template = $compile(el)($rootScope);
+    $rootScope.$digest();
+
+    expect(angular.element(template[0]).attr('class')).toBe('ng-scope');
+
+    $state.transitionTo('contacts.item', { id: 1 });
+    $q.flush();
+    timeoutFlush();
+    expect(angular.element(template[0]).attr('class')).toBe('ng-scope active');
+
+    $state.transitionTo('contacts.item', { id: 2 });
+    $q.flush();
+    timeoutFlush();
+    expect(angular.element(template[0]).attr('class')).toBe('ng-scope active');
+  }));
+
+  it('should match fuzzy on lazy loaded states', inject(function($rootScope, $q, $compile, $state) {
+    el = angular.element('<div><a ui-sref="contacts.lazy" ui-sref-active="active">Lazy Contact</a></div>');
+    template = $compile(el)($rootScope);
+    $rootScope.$digest();
+
+    $rootScope.$on('$stateNotFound', function () {
+      _stateProvider.state('contacts.lazy', {});
+    });
+
+    $state.transitionTo('contacts.item', { id: 1 });
+    $q.flush();
+    timeoutFlush();
+    expect(angular.element(template[0].querySelector('a')).attr('class')).toBe('');
+
+    $state.transitionTo('contacts.lazy');
+    $q.flush();
+    timeoutFlush();
+    expect(angular.element(template[0].querySelector('a')).attr('class')).toBe('active');
+  }));
+
+  it('should match exactly on lazy loaded states', inject(function($rootScope, $q, $compile, $state) {
+    el = angular.element('<div><a ui-sref="contacts.lazy" ui-sref-active-eq="active">Lazy Contact</a></div>');
+    template = $compile(el)($rootScope);
+    $rootScope.$digest();
+
+    $rootScope.$on('$stateNotFound', function () {
+      _stateProvider.state('contacts.lazy', {});
+    });
+
+    $state.transitionTo('contacts.item', { id: 1 });
+    $q.flush();
+    timeoutFlush();
+    expect(angular.element(template[0].querySelector('a')).attr('class')).toBe('');
+
+    $state.transitionTo('contacts.lazy');
+    $q.flush();
+    timeoutFlush();
+    expect(angular.element(template[0].querySelector('a')).attr('class')).toBe('active');
   }));
 });
 
