@@ -199,6 +199,7 @@ module.exports = function (grunt) {
 
   grunt.registerTask('perform-release', function () {
     grunt.task.requires([ 'prepare-release', 'dist' ]);
+    grunt.log.write('builddir: ' + grunt.config('builddir'));
 
     var version = grunt.config('pkg.version'), releasedir = grunt.config('builddir');
     promising(this,
